@@ -3,7 +3,7 @@ export declare class CSVProcessor {
     static processCSVFile(config: FileProcessingConfig): Promise<ProcessingResult>;
     private static filterFields;
     private static readDataFile;
-    private static readCSVFile;
+    private static readCSVFileFromS3;
     private static writeCSVFile;
     private static convertToCSV;
 }

@@ -34,16 +34,15 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.CSVProcessor = void 0;
-// ===== CSV PROCESSOR =====
-const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
 const dataValidator_1 = require("../validation/dataValidator");
 const excelReader_1 = require("../utils/excelReader");
+const s3Service_1 = require("./s3Service");
 class CSVProcessor {
     static async processCSVFile(config) {
         try {
             console.log(`Processing file: ${config.inputFile}`);
-            // Read Excel/CSV file
+            // Read Excel/CSV file from S3
             const rawData = await this.readDataFile(config.inputFile);
             let processedRecords = 0;
             let errorRecords = 0;
@@ -65,7 +64,7 @@ class CSVProcessor {
                     allErrors.push(`Row ${i + 1}: ${validation.errors.join(', ')}`);
                 }
             }
-            // Write output CSV
+            // Write output CSV to S3
             await this.writeCSVFile(config.outputFile, validRecords);
             console.log(`✓ Processed ${processedRecords} records, ${errorRecords} errors`);
             return {
@@ -96,34 +95,49 @@ class CSVProcessor {
         }
         return filtered;
     }
-    static async readDataFile(filePath) {
-        const extension = path.extname(filePath).toLowerCase();
+    static async readDataFile(s3Key) {
+        const extension = path.extname(s3Key).toLowerCase();
         if (extension === '.xls' || extension === '.xlsx') {
-            // Read Excel file (handles encryption)
-            return await excelReader_1.ExcelReader.readExcelFile(filePath);
+            // Download Excel file from S3 and read it
+            const buffer = await s3Service_1.S3Service.downloadFromS3(s3Key);
+            return await excelReader_1.ExcelReader.readExcelFileFromBuffer(buffer, s3Key);
         }
         else if (extension === '.csv') {
-            // Read CSV file
-            return await this.readCSVFile(filePath);
+            // Download and read CSV file from S3
+            return await this.readCSVFileFromS3(s3Key);
         }
         else {
             throw new Error(`Unsupported file format: ${extension}`);
         }
     }
-    static async readCSVFile(filePath) {
-        throw new Error(`CSV file reading not implemented yet for: ${filePath}`);
-    }
-    static async writeCSVFile(filePath, data) {
-        // This is a placeholder - in real implementation, you'd use csv-writer
-        console.log(`Would write ${data.length} records to ${filePath}`);
-        // Create output directory if it doesn't exist
-        const dir = path.dirname(filePath);
-        if (!fs.existsSync(dir)) {
-            fs.mkdirSync(dir, { recursive: true });
+    static async readCSVFileFromS3(s3Key) {
+        const buffer = await s3Service_1.S3Service.downloadFromS3(s3Key);
+        const csvContent = buffer.toString('utf8');
+        // Parse CSV content
+        const lines = csvContent.split('\n');
+        if (lines.length === 0)
+            return [];
+        const headers = lines[0].split(',').map(h => h.trim());
+        const data = [];
+        for (let i = 1; i < lines.length; i++) {
+            const line = lines[i].trim();
+            if (line) {
+                const values = line.split(',').map(v => v.trim());
+                const record = {};
+                headers.forEach((header, index) => {
+                    record[header] = values[index] || '';
+                });
+                data.push(record);
+            }
         }
-        // In real implementation, convert data to CSV and write
+        return data;
+    }
+    static async writeCSVFile(s3Key, data) {
+        console.log(`Writing ${data.length} records to S3: ${s3Key}`);
+        // Convert data to CSV format
         const csvContent = this.convertToCSV(data);
-        fs.writeFileSync(filePath, csvContent);
+        // Upload to S3
+        await s3Service_1.S3Service.uploadToS3(s3Key, csvContent);
     }
     static convertToCSV(data) {
         if (data.length === 0)

@@ -34,61 +34,47 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.DataProcessor = void 0;
-// ===== MAIN APPLICATION =====
-const path = __importStar(require("path"));
 const fieldFilterConfig_1 = require("./validation/fieldFilterConfig");
 const csvProcessor_1 = require("./processors/csvProcessor");
+const s3Service_1 = require("./processors/s3Service");
+const dotenv = __importStar(require("dotenv"));
+// Load environment variables
+dotenv.config();
 class DataProcessor {
     static async processAllFiles() {
         console.log('🚀 Starting data processing pipeline...');
-        // Define file processing configurations
+        // Define file processing configurations using actual S3 file names
         const fileConfigs = [
-            // APEX Files
+            // APEX Files (in root folder)
             {
                 source: 'APEX',
-                inputFile: './data/apex/Shareholding for a shareholder.xls',
-                outputFile: './output/apex_shareholding_cleaned.csv',
+                inputFile: `${s3Service_1.S3Config.APEX_DATA_PREFIX}2504080Dummy Report - Shareholding for a shareholder.xls`,
+                outputFile: `${s3Service_1.S3Config.OUTPUT_PREFIX}apex_shareholding_cleaned.csv`,
                 whitelistedFields: fieldFilterConfig_1.FieldFilterConfig.APEX_SHAREHOLDING_FIELDS,
                 requiredFields: fieldFilterConfig_1.FieldFilterConfig.APEX_SHAREHOLDING_FIELDS,
                 allowEmptyFields: true
             },
             {
                 source: 'APEX',
-                inputFile: './data/apex/Shareholder transactions.xls',
-                outputFile: './output/apex_transactions_cleaned.csv',
-                whitelistedFields: fieldFilterConfig_1.FieldFilterConfig.APEX_TRANSACTION_FIELDS,
-                requiredFields: fieldFilterConfig_1.FieldFilterConfig.APEX_TRANSACTION_FIELDS,
-                allowEmptyFields: true
-            },
-            {
-                source: 'APEX',
-                inputFile: './data/apex/Shareholder names and addresses.xls',
-                outputFile: './output/apex_contacts_cleaned.csv',
+                inputFile: `${s3Service_1.S3Config.APEX_DATA_PREFIX}250408 Dummy Report - Shareholder names and addresses.xls`,
+                outputFile: `${s3Service_1.S3Config.OUTPUT_PREFIX}apex_contacts_cleaned.csv`,
                 whitelistedFields: fieldFilterConfig_1.FieldFilterConfig.APEX_CONTACT_FIELDS,
                 requiredFields: fieldFilterConfig_1.FieldFilterConfig.APEX_CONTACT_FIELDS,
                 allowEmptyFields: true
             },
-            // iCapital Files
+            // iCapital Files (in root folder)
             {
                 source: 'ICAPITAL',
-                inputFile: './data/icapital/user detail report.xlsx',
-                outputFile: './output/icapital_users_cleaned.csv',
+                inputFile: `${s3Service_1.S3Config.ICAPITAL_DATA_PREFIX}user detail report - 2025-03-26 (1).xlsx`,
+                outputFile: `${s3Service_1.S3Config.OUTPUT_PREFIX}icapital_users_cleaned.csv`,
                 whitelistedFields: fieldFilterConfig_1.FieldFilterConfig.ICAPITAL_USER_FIELDS,
                 requiredFields: fieldFilterConfig_1.FieldFilterConfig.ICAPITAL_USER_FIELDS,
                 allowEmptyFields: true
             },
             {
                 source: 'ICAPITAL',
-                inputFile: './data/icapital/investment detail report.xlsx',
-                outputFile: './output/icapital_investments_cleaned.csv',
-                whitelistedFields: fieldFilterConfig_1.FieldFilterConfig.ICAPITAL_INVESTMENT_FIELDS,
-                requiredFields: fieldFilterConfig_1.FieldFilterConfig.ICAPITAL_INVESTMENT_FIELDS,
-                allowEmptyFields: true
-            },
-            {
-                source: 'ICAPITAL',
-                inputFile: './data/icapital/engagement_activities.xlsx',
-                outputFile: './output/icapital_engagement_cleaned.csv',
+                inputFile: `${s3Service_1.S3Config.ICAPITAL_DATA_PREFIX}engagement_activities_2021373_1743001363 (2).xlsx`,
+                outputFile: `${s3Service_1.S3Config.OUTPUT_PREFIX}icapital_engagement_cleaned.csv`,
                 whitelistedFields: fieldFilterConfig_1.FieldFilterConfig.ICAPITAL_ENGAGEMENT_FIELDS,
                 requiredFields: fieldFilterConfig_1.FieldFilterConfig.ICAPITAL_ENGAGEMENT_FIELDS,
                 allowEmptyFields: true
@@ -97,7 +83,7 @@ class DataProcessor {
         // Process each file
         const results = [];
         for (const config of fileConfigs) {
-            console.log(`\n📁 Processing ${config.source} file: ${path.basename(config.inputFile)}`);
+            console.log(`\n📁 Processing ${config.source} file: ${config.inputFile}`);
             try {
                 const result = await csvProcessor_1.CSVProcessor.processCSVFile(config);
                 results.push(result);
@@ -116,7 +102,7 @@ class DataProcessor {
         let totalErrors = 0;
         results.forEach((result, index) => {
             const config = fileConfigs[index];
-            console.log(`${config.source} - ${path.basename(config.inputFile)}:`);
+            console.log(`${config.source} - ${config.inputFile}:`);
             console.log(`  ✓ Processed: ${result.processedRecords} records`);
             console.log(`  ✗ Errors: ${result.errorRecords} records`);
             console.log(`  📁 Output: ${result.outputFile}`);

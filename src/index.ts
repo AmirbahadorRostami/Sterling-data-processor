@@ -3,60 +3,49 @@ import * as path from 'path';
 import { FileProcessingConfig, ProcessingResult } from './models/commonTypes';
 import { FieldFilterConfig } from './validation/fieldFilterConfig';
 import { CSVProcessor } from './processors/csvProcessor';
+import { S3Config } from './processors/s3Service';
+import * as dotenv from 'dotenv';
+
+// Load environment variables
+dotenv.config();
 
 export class DataProcessor {
   
   static async processAllFiles(): Promise<void> {
     console.log('🚀 Starting data processing pipeline...');
     
-    // Define file processing configurations
+    // Define file processing configurations using actual S3 file names
     const fileConfigs: FileProcessingConfig[] = [
-      // APEX Files
+      // APEX Files (in root folder)
       {
         source: 'APEX',
-        inputFile: './data/apex/Shareholding for a shareholder.xls',
-        outputFile: './output/apex_shareholding_cleaned.csv',
+        inputFile: `${S3Config.APEX_DATA_PREFIX}2504080Dummy Report - Shareholding for a shareholder.xls`,
+        outputFile: `${S3Config.OUTPUT_PREFIX}apex_shareholding_cleaned.csv`,
         whitelistedFields: FieldFilterConfig.APEX_SHAREHOLDING_FIELDS,
         requiredFields: FieldFilterConfig.APEX_SHAREHOLDING_FIELDS,
         allowEmptyFields: true
       },
       {
-        source: 'APEX', 
-        inputFile: './data/apex/Shareholder transactions.xls',
-        outputFile: './output/apex_transactions_cleaned.csv',
-        whitelistedFields: FieldFilterConfig.APEX_TRANSACTION_FIELDS,
-        requiredFields: FieldFilterConfig.APEX_TRANSACTION_FIELDS,
-        allowEmptyFields: true
-      },
-      {
         source: 'APEX',
-        inputFile: './data/apex/Shareholder names and addresses.xls', 
-        outputFile: './output/apex_contacts_cleaned.csv',
+        inputFile: `${S3Config.APEX_DATA_PREFIX}250408 Dummy Report - Shareholder names and addresses.xls`, 
+        outputFile: `${S3Config.OUTPUT_PREFIX}apex_contacts_cleaned.csv`,
         whitelistedFields: FieldFilterConfig.APEX_CONTACT_FIELDS,
         requiredFields: FieldFilterConfig.APEX_CONTACT_FIELDS,
         allowEmptyFields: true
       },
-      // iCapital Files
+      // iCapital Files (in root folder)
       {
         source: 'ICAPITAL',
-        inputFile: './data/icapital/user detail report.xlsx',
-        outputFile: './output/icapital_users_cleaned.csv',
+        inputFile: `${S3Config.ICAPITAL_DATA_PREFIX}user detail report - 2025-03-26 (1).xlsx`,
+        outputFile: `${S3Config.OUTPUT_PREFIX}icapital_users_cleaned.csv`,
         whitelistedFields: FieldFilterConfig.ICAPITAL_USER_FIELDS,
         requiredFields: FieldFilterConfig.ICAPITAL_USER_FIELDS,
         allowEmptyFields: true
       },
       {
         source: 'ICAPITAL',
-        inputFile: './data/icapital/investment detail report.xlsx',
-        outputFile: './output/icapital_investments_cleaned.csv', 
-        whitelistedFields: FieldFilterConfig.ICAPITAL_INVESTMENT_FIELDS,
-        requiredFields: FieldFilterConfig.ICAPITAL_INVESTMENT_FIELDS,
-        allowEmptyFields: true
-      },
-      {
-        source: 'ICAPITAL',
-        inputFile: './data/icapital/engagement_activities.xlsx',
-        outputFile: './output/icapital_engagement_cleaned.csv',
+        inputFile: `${S3Config.ICAPITAL_DATA_PREFIX}engagement_activities_2021373_1743001363 (2).xlsx`,
+        outputFile: `${S3Config.OUTPUT_PREFIX}icapital_engagement_cleaned.csv`,
         whitelistedFields: FieldFilterConfig.ICAPITAL_ENGAGEMENT_FIELDS,
         requiredFields: FieldFilterConfig.ICAPITAL_ENGAGEMENT_FIELDS,
         allowEmptyFields: true
@@ -66,7 +55,7 @@ export class DataProcessor {
     // Process each file
     const results: ProcessingResult[] = [];
     for (const config of fileConfigs) {
-      console.log(`\n📁 Processing ${config.source} file: ${path.basename(config.inputFile)}`);
+      console.log(`\n📁 Processing ${config.source} file: ${config.inputFile}`);
       try {
         const result = await CSVProcessor.processCSVFile(config);
         results.push(result);
@@ -86,7 +75,7 @@ export class DataProcessor {
     
     results.forEach((result, index) => {
       const config = fileConfigs[index];
-      console.log(`${config.source} - ${path.basename(config.inputFile)}:`);
+      console.log(`${config.source} - ${config.inputFile}:`);
       console.log(`  ✓ Processed: ${result.processedRecords} records`);
       console.log(`  ✗ Errors: ${result.errorRecords} records`);
       console.log(`  📁 Output: ${result.outputFile}`);

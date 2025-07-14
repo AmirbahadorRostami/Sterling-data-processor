@@ -12,6 +12,18 @@ export declare class ExcelReader {
      */
     private static getPasswordForFile;
     /**
+     * Read Excel file from buffer (for S3 integration)
+     */
+    static readExcelFileFromBuffer(buffer: Buffer, s3Key?: string): Promise<any[]>;
+    /**
+     * Handle encrypted Excel files from buffer
+     */
+    private static readEncryptedExcelFromBuffer;
+    /**
+     * Get password based on S3 key
+     */
+    private static getPasswordForS3Key;
+    /**
      * Get file headers without reading all data
      */
     static getExcelHeaders(filePath: string): Promise<string[]>;

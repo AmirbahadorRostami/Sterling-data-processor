@@ -4,6 +4,7 @@ import * as path from 'path';
 import { FileProcessingConfig, ProcessingResult } from '../models/commonTypes';
 import { DataValidator } from '../validation/dataValidator';
 import { ExcelReader } from '../utils/excelReader';
+import { S3Service } from './s3Service';
 
 export class CSVProcessor {
   
@@ -11,7 +12,7 @@ export class CSVProcessor {
     try {
       console.log(`Processing file: ${config.inputFile}`);
       
-      // Read Excel/CSV file
+      // Read Excel/CSV file from S3
       const rawData = await this.readDataFile(config.inputFile);
       
       let processedRecords = 0;
@@ -38,7 +39,7 @@ export class CSVProcessor {
         }
       }
 
-      // Write output CSV
+      // Write output CSV to S3
       await this.writeCSVFile(config.outputFile, validRecords);
 
       console.log(`✓ Processed ${processedRecords} records, ${errorRecords} errors`);
@@ -73,37 +74,55 @@ export class CSVProcessor {
     return filtered;
   }
 
-  private static async readDataFile(filePath: string): Promise<any[]> {
-    const extension = path.extname(filePath).toLowerCase();
+  private static async readDataFile(s3Key: string): Promise<any[]> {
+    const extension = path.extname(s3Key).toLowerCase();
     
     if (extension === '.xls' || extension === '.xlsx') {
-      // Read Excel file (handles encryption)
-      return await ExcelReader.readExcelFile(filePath);
+      // Download Excel file from S3 and read it
+      const buffer = await S3Service.downloadFromS3(s3Key);
+      return await ExcelReader.readExcelFileFromBuffer(buffer, s3Key);
     } else if (extension === '.csv') {
-      // Read CSV file
-      return await this.readCSVFile(filePath);
+      // Download and read CSV file from S3
+      return await this.readCSVFileFromS3(s3Key);
     } else {
       throw new Error(`Unsupported file format: ${extension}`);
     }
   }
 
-  private static async readCSVFile(filePath: string): Promise<any[]> {
-    throw new Error(`CSV file reading not implemented yet for: ${filePath}`);
+  private static async readCSVFileFromS3(s3Key: string): Promise<any[]> {
+    const buffer = await S3Service.downloadFromS3(s3Key);
+    const csvContent = buffer.toString('utf8');
+    
+    // Parse CSV content
+    const lines = csvContent.split('\n');
+    if (lines.length === 0) return [];
+    
+    const headers = lines[0].split(',').map(h => h.trim());
+    const data: any[] = [];
+    
+    for (let i = 1; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (line) {
+        const values = line.split(',').map(v => v.trim());
+        const record: any = {};
+        headers.forEach((header, index) => {
+          record[header] = values[index] || '';
+        });
+        data.push(record);
+      }
+    }
+    
+    return data;
   }
 
-  private static async writeCSVFile(filePath: string, data: any[]): Promise<void> {
-    // This is a placeholder - in real implementation, you'd use csv-writer
-    console.log(`Would write ${data.length} records to ${filePath}`);
+  private static async writeCSVFile(s3Key: string, data: any[]): Promise<void> {
+    console.log(`Writing ${data.length} records to S3: ${s3Key}`);
     
-    // Create output directory if it doesn't exist
-    const dir = path.dirname(filePath);
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
-    }
-
-    // In real implementation, convert data to CSV and write
+    // Convert data to CSV format
     const csvContent = this.convertToCSV(data);
-    fs.writeFileSync(filePath, csvContent);
+    
+    // Upload to S3
+    await S3Service.uploadToS3(s3Key, csvContent);
   }
 
   private static convertToCSV(data: any[]): string {
